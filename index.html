@@ -1,0 +1,2011 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CYBER-TERMINAL // CLUEDO HACK SYSTEM ULTIMATE</title>
+    <!-- jsQR Library for Camera QR Scanning -->
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+    <style>
+        :root {
+            --bg-color: #050a05;
+            --main-color: #00ff66;
+            --dim-color: #008833;
+            --accent-color: #00ffff;
+            --alert-color: #ff3333;
+            --panel-bg: rgba(5, 20, 10, 0.92);
+            --border-color: #00ff66;
+            --font-family: 'Courier New', Courier, monospace;
+        }
+
+        body.theme-amber {
+            --bg-color: #0a0700;
+            --main-color: #ffb000;
+            --dim-color: #996600;
+            --accent-color: #ffff00;
+            --panel-bg: rgba(20, 15, 0, 0.92);
+            --border-color: #ffb000;
+        }
+
+        body.theme-cyan {
+            --bg-color: #000a0d;
+            --main-color: #00f3ff;
+            --dim-color: #007780;
+            --accent-color: #ff00ff;
+            --panel-bg: rgba(0, 20, 25, 0.92);
+            --border-color: #00f3ff;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--main-color);
+            font-family: var(--font-family);
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+            text-shadow: 0 0 5px var(--main-color);
+        }
+
+        /* CRT Scanlines Overlay */
+        body::before {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+            z-index: 100;
+            background-size: 100% 3px, 6px 100%;
+            pointer-events: none;
+        }
+
+        #matrix-canvas {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 1;
+            opacity: 0.20;
+        }
+
+        #app-container {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            padding: 6px;
+        }
+
+        /* Header */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid var(--border-color);
+            background: var(--panel-bg);
+            padding: 8px 12px;
+            margin-bottom: 6px;
+            box-shadow: 0 0 10px var(--border-color);
+        }
+
+        .sys-title {
+            font-size: 1rem;
+            font-weight: bold;
+            letter-spacing: 1px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+
+        /* Buttons & Forms */
+        button, select, input {
+            background: rgba(0, 0, 0, 0.8);
+            color: var(--main-color);
+            border: 1px solid var(--border-color);
+            font-family: var(--font-family);
+            padding: 6px 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            outline: none;
+            font-size: 0.9rem;
+            border-radius: 4px;
+        }
+
+        button:active, button:hover {
+            background: var(--main-color);
+            color: #000;
+            box-shadow: 0 0 10px var(--main-color);
+        }
+
+        .btn-active {
+            background: var(--main-color);
+            color: #000;
+        }
+
+        .timer-box {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: var(--accent-color);
+            border: 1px solid var(--accent-color);
+            padding: 4px 10px;
+            background: rgba(0,0,0,0.7);
+            border-radius: 4px;
+        }
+
+        .timer-box.alarm {
+            color: var(--alert-color);
+            border-color: var(--alert-color);
+            animation: blink 0.5s infinite alternate;
+        }
+
+        @keyframes blink {
+            from { opacity: 1; }
+            to { opacity: 0.3; }
+        }
+
+        /* Workspace Layout */
+        #workspace {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* CLI Terminal View */
+        #cli-view {
+            flex: 1;
+            border: 1px solid var(--border-color);
+            background: var(--panel-bg);
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 0 10px var(--border-color);
+        }
+
+        #cli-output {
+            flex: 1;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+            margin-bottom: 10px;
+            line-height: 1.4;
+            font-size: 0.9rem;
+        }
+
+        .cli-input-line {
+            display: flex;
+            align-items: center;
+        }
+
+        .prompt {
+            margin-right: 6px;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+
+        #cli-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--main-color);
+            font-size: 0.95rem;
+            outline: none;
+        }
+
+        /* GUI View with Bottom Navigation for Mobile */
+        #gui-view {
+            flex: 1;
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .content-area {
+            flex: 1;
+            border: 1px solid var(--border-color);
+            background: var(--panel-bg);
+            padding: 12px;
+            overflow-y: auto;
+            margin-bottom: 6px;
+        }
+
+        /* Bottom Tab Bar for Smartphone Comfort */
+        .bottom-nav {
+            display: flex;
+            background: rgba(0,0,0,0.95);
+            border: 1px solid var(--border-color);
+            overflow-x: auto;
+            padding: 4px;
+            gap: 4px;
+            box-shadow: 0 0 10px var(--border-color);
+        }
+
+        .bottom-nav-btn {
+            flex: 1;
+            min-width: 60px;
+            padding: 8px 4px;
+            font-size: 0.75rem;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+            white-space: nowrap;
+        }
+
+        .bottom-nav-btn span {
+            font-size: 1.1rem;
+        }
+
+        /* Grids & Cards */
+        .file-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 10px;
+        }
+
+        .file-card {
+            border: 1px solid var(--border-color);
+            padding: 10px;
+            background: rgba(0,0,0,0.5);
+            cursor: pointer;
+            text-align: center;
+            border-radius: 4px;
+        }
+
+        .file-card:active {
+            transform: scale(0.98);
+        }
+
+        .suspect-card {
+            border: 1px solid var(--border-color);
+            padding: 10px;
+            margin-bottom: 10px;
+            background: rgba(0,0,0,0.6);
+            border-radius: 4px;
+        }
+
+        .suspect-header {
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+            border-bottom: 1px solid var(--dim-color);
+            padding-bottom: 4px;
+            margin-bottom: 6px;
+        }
+
+        /* CCTV Grid */
+        .cctv-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 12px;
+        }
+
+        .cctv-card {
+            border: 1px solid var(--border-color);
+            background: rgba(0,0,0,0.7);
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            border-radius: 4px;
+        }
+
+        .cctv-screen {
+            height: 160px;
+            background: #000;
+            border: 1px solid var(--dim-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+            border-radius: 4px;
+        }
+
+        .cctv-screen iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        /* Bomb Wires UI */
+        .wire-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .wire-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(0,0,0,0.6);
+            padding: 8px 12px;
+            border: 1px solid var(--dim-color);
+            border-radius: 4px;
+        }
+
+        .wire-line {
+            flex: 1;
+            height: 12px;
+            border-radius: 6px;
+            box-shadow: 0 0 8px currentColor;
+            transition: all 0.3s;
+        }
+
+        .wire-cut {
+            height: 4px !important;
+            opacity: 0.25;
+            box-shadow: none !important;
+            border: 1px dashed #fff;
+        }
+
+        /* On-Screen Keypad for Touchscreen */
+        .keypad-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            max-width: 260px;
+            margin: 15px auto;
+        }
+
+        .keypad-btn {
+            font-size: 1.3rem;
+            padding: 14px;
+            font-weight: bold;
+            text-align: center;
+            background: rgba(0,0,0,0.7);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+        }
+
+        /* Biometric Scanner UI */
+        .scanner-box {
+            text-align: center;
+            padding: 20px;
+            border: 2px dashed var(--accent-color);
+            border-radius: 8px;
+            margin: 15px 0;
+            background: rgba(0, 30, 30, 0.4);
+        }
+
+        .fingerprint-icon {
+            font-size: 4rem;
+            margin: 15px 0;
+            cursor: pointer;
+            transition: transform 0.2s;
+            display: inline-block;
+        }
+
+        .fingerprint-icon.scanning {
+            animation: pulse-scan 0.8s infinite alternate;
+            color: var(--accent-color);
+        }
+
+        @keyframes pulse-scan {
+            from { transform: scale(1); filter: drop-shadow(0 0 5px var(--accent-color)); }
+            to { transform: scale(1.15); filter: drop-shadow(0 0 20px var(--accent-color)); }
+        }
+
+        .progress-bar-container {
+            width: 100%;
+            height: 14px;
+            background: rgba(0,0,0,0.8);
+            border: 1px solid var(--border-color);
+            border-radius: 7px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            width: 0%;
+            background: var(--main-color);
+            transition: width 0.1s linear;
+        }
+
+        /* Deduction Board Matrix */
+        .deduction-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            margin-top: 10px;
+        }
+
+        .deduction-table th, .deduction-table td {
+            border: 1px solid var(--dim-color);
+            padding: 6px;
+            text-align: center;
+        }
+
+        .deduction-table th {
+            background: rgba(0, 255, 102, 0.15);
+            color: var(--accent-color);
+        }
+
+        .mark-btn {
+            padding: 2px 6px;
+            font-size: 0.75rem;
+            width: 32px;
+        }
+
+        /* Modals */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.90);
+            z-index: 300;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+        }
+
+        .modal-content {
+            border: 2px solid var(--border-color);
+            background: var(--bg-color);
+            width: 100%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+            padding: 16px;
+            box-shadow: 0 0 20px var(--border-color);
+            border-radius: 6px;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 8px;
+            margin-bottom: 12px;
+        }
+
+        .form-group {
+            margin-bottom: 10px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 4px;
+            color: var(--accent-color);
+            font-size: 0.85rem;
+        }
+
+        .form-group input, .form-group textarea, .form-group select {
+            width: 100%;
+            padding: 8px;
+        }
+
+        .form-group textarea {
+            height: 70px;
+            resize: vertical;
+        }
+
+        /* Initial Lock Overlay */
+        #lock-screen-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: var(--bg-color);
+            z-index: 500;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .lock-box {
+            border: 2px solid var(--alert-color);
+            padding: 20px;
+            background: rgba(20, 0, 0, 0.8);
+            box-shadow: 0 0 25px var(--alert-color);
+            max-width: 420px;
+            width: 100%;
+            border-radius: 8px;
+        }
+
+        .lock-title {
+            color: var(--alert-color);
+            font-size: 1.4rem;
+            margin-bottom: 12px;
+            letter-spacing: 1px;
+            animation: blink 1s infinite alternate;
+        }
+
+        /* Simon Says Minigame */
+        .simon-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            width: 180px;
+            height: 180px;
+            margin: 15px auto;
+        }
+
+        .simon-btn {
+            border-radius: 8px;
+            cursor: pointer;
+            opacity: 0.6;
+            transition: opacity 0.2s;
+        }
+
+        .simon-btn.active {
+            opacity: 1 !important;
+            box-shadow: 0 0 15px #fff;
+        }
+
+        /* QR Scanner Video Canvas */
+        #qr-video {
+            width: 100%;
+            max-width: 320px;
+            height: 220px;
+            background: #000;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            object-fit: cover;
+        }
+
+        /* Random Hack Intrusion Alert Banner */
+        #intrusion-banner {
+            display: none;
+            position: fixed;
+            top: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 480px;
+            background: rgba(255, 0, 0, 0.95);
+            color: #fff;
+            border: 2px solid #fff;
+            padding: 12px;
+            z-index: 400;
+            text-align: center;
+            box-shadow: 0 0 20px #ff0000;
+            border-radius: 6px;
+            animation: blink 0.4s infinite alternate;
+        }
+
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.5); }
+        ::-webkit-scrollbar-thumb { background: var(--border-color); }
+    </style>
+</head>
+<body class="theme-matrix">
+
+    <canvas id="matrix-canvas"></canvas>
+
+    <!-- INTRUSION ALERT BANNER -->
+    <div id="intrusion-banner">
+        <div style="font-weight:bold; font-size:1.1rem;">⚠️ ¡ALERTA DE CIBER-INTRUSIÓN!</div>
+        <div style="font-size:0.85rem; margin:6px 0;">El cortafuegos está sufriendo un ataque masivo. Haz clic en 'NEUTRALIZAR' antes de 15 segundos o perderás 3 minutos.</div>
+        <button onclick="neutralizeIntrusion()" style="background:#fff; color:#ff0000; font-weight:bold; border:none; padding:8px 16px;">🛡️ NEUTRALIZAR ATAQUE</button>
+    </div>
+
+    <!-- INITIAL LOCK SCREEN OVERLAY -->
+    <div id="lock-screen-overlay">
+        <div class="lock-box">
+            <div class="lock-title">🔒 ACCESO RESTRINGIDO</div>
+            <p style="margin-bottom: 12px; font-size: 0.85rem; line-height: 1.4;">
+                SISTEMA BLOQUEADO POR PROTOCOLO DE SEGURIDAD.<br>
+                INTRODUZCA LA CLAVE DE ACTIVACIÓN FÍSICA O ESCANEE EL CÓDIGO QR.
+            </p>
+            <div class="form-group">
+                <input type="text" id="init-code-input" placeholder="CÓDIGO DE ACTIVACIÓN..." style="text-align:center; font-size:1.1rem; letter-spacing:2px;" autofocus>
+            </div>
+
+            <!-- Touchpad Keypad for Quick Mobile Access -->
+            <div class="keypad-grid">
+                <button class="keypad-btn" onclick="pressKeypad('1')">1</button>
+                <button class="keypad-btn" onclick="pressKeypad('2')">2</button>
+                <button class="keypad-btn" onclick="pressKeypad('3')">3</button>
+                <button class="keypad-btn" onclick="pressKeypad('4')">4</button>
+                <button class="keypad-btn" onclick="pressKeypad('5')">5</button>
+                <button class="keypad-btn" onclick="pressKeypad('6')">6</button>
+                <button class="keypad-btn" onclick="pressKeypad('7')">7</button>
+                <button class="keypad-btn" onclick="pressKeypad('8')">8</button>
+                <button class="keypad-btn" onclick="pressKeypad('9')">9</button>
+                <button class="keypad-btn" style="color:var(--alert-color);" onclick="clearKeypad()">⌫</button>
+                <button class="keypad-btn" onclick="pressKeypad('0')">0</button>
+                <button class="keypad-btn" style="color:var(--accent-color);" onclick="attemptSystemUnlock()">✔</button>
+            </div>
+
+            <button onclick="attemptSystemUnlock()" style="width:100%; padding:10px; font-weight:bold; font-size:0.95rem; border-color:var(--accent-color); margin-top:5px;">DESBLOQUEAR SISTEMA</button>
+            <div id="init-lock-error" style="color:var(--alert-color); margin-top:8px; display:none; font-weight:bold; font-size:0.85rem;">✖ CÓDIGO INCORRECTO</div>
+        </div>
+    </div>
+
+    <div id="app-container">
+        <!-- Header -->
+        <header>
+            <div class="sys-title" id="sys-title-text">⚡ BLACKWOOD_SEC_OS</div>
+            
+            <div class="timer-box" id="timer-display">30:00</div>
+
+            <div class="header-controls">
+                <button id="btn-sound-toggle" title="Sonido">🔊</button>
+                <select id="theme-select" title="Tema" style="padding:4px;">
+                    <option value="theme-matrix">Matrix</option>
+                    <option value="theme-amber">Ámbar</option>
+                    <option value="theme-cyan">Cián</option>
+                </select>
+                <button id="btn-mode-cli">CLI</button>
+                <button id="btn-mode-gui" class="btn-active">GUI</button>
+                <button id="btn-gm-panel" style="border-color: var(--alert-color); color: var(--alert-color);" title="Director de Juego">🛡️</button>
+            </div>
+        </header>
+
+        <!-- Main Workspace -->
+        <div id="workspace">
+            <!-- CLI View -->
+            <div id="cli-view">
+                <div id="cli-output"></div>
+                <div class="cli-input-line">
+                    <span class="prompt">GUEST@BLACKWOOD:~#</span>
+                    <input type="text" id="cli-input" autocomplete="off" spellcheck="false">
+                </div>
+            </div>
+
+            <!-- GUI View -->
+            <div id="gui-view" style="display:flex;">
+                <div class="content-area">
+                    <!-- Files Tab -->
+                    <div id="tab-files" class="gui-tab">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                            <h3 style="color: var(--accent-color); font-size:1rem;">Archivos de Pistas</h3>
+                            <button onclick="requestHintPenalty()" style="font-size:0.75rem; border-color:var(--accent-color);">💡 Pedir Pista (-3 min)</button>
+                        </div>
+                        <div id="gui-file-list" class="file-grid"></div>
+                    </div>
+
+                    <!-- Dossiers / Deduction Board Tab -->
+                    <div id="tab-dossiers" class="gui-tab" style="display:none;">
+                        <h3 style="margin-bottom:8px; color: var(--accent-color); font-size:1rem;">Tablero de Investigación y Sospechosos</h3>
+                        <div id="gui-dossier-list"></div>
+                        
+                        <h4 style="margin:15px 0 8px 0; color:var(--accent-color); font-size:0.9rem;">Matriz de Descartes</h4>
+                        <table class="deduction-table">
+                            <thead>
+                                <tr>
+                                    <th>Sospechoso</th>
+                                    <th>Salón</th>
+                                    <th>Jardín</th>
+                                    <th>Biblio</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody id="deduction-matrix-body">
+                                <tr>
+                                    <td>Sra. Rosa</td>
+                                    <td><button class="mark-btn" onclick="toggleMark(this)">-</button></td>
+                                    <td><button class="mark-btn" onclick="toggleMark(this)">-</button></td>
+                                    <td><button class="mark-btn" onclick="toggleMark(this)">-</button></td>
+                                    <td style="color:var(--alert-color);">Sospechosa</td>
+                                </tr>
+                                <tr>
+                                    <td>Capitán Azul</td>
+                                    <td><button class="mark-btn" onclick="toggleMark(this)">-</button></td>
+                                    <td><button class="mark-btn" onclick="toggleMark(this)">-</button></td>
+                                    <td><button class="mark-btn" onclick="toggleMark(this)">-</button></td>
+                                    <td style="color:var(--alert-color);">Sospechoso</td>
+                                </tr>
+                                <tr>
+                                    <td>Dr. Verde</td>
+                                    <td><button class="mark-btn" onclick="toggleMark(this)">-</button></td>
+                                    <td><button class="mark-btn" onclick="toggleMark(this)">-</button></td>
+                                    <td><button class="mark-btn" onclick="toggleMark(this)">-</button></td>
+                                    <td style="color:var(--main-color);">Exonerado</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Decrypt Tab -->
+                    <div id="tab-decrypt" class="gui-tab" style="display:none;">
+                        <h3 style="margin-bottom:10px; color: var(--accent-color); font-size:1rem;">Desencriptador Criptográfico</h3>
+                        <div class="form-group">
+                            <label>Seleccionar Archivo .dat:</label>
+                            <select id="gui-decrypt-select"></select>
+                        </div>
+                        <div class="form-group">
+                            <label>Introducir Clave de Seguridad:</label>
+                            <input type="text" id="gui-decrypt-pass" placeholder="Escribe la clave aquí...">
+                        </div>
+                        <button onclick="executeGuiDecrypt()" style="width:100%; padding:10px; font-weight:bold;">EJECUTAR DESCIFRADO</button>
+                        <div id="gui-decrypt-result" style="margin-top:12px; white-space:pre-wrap; padding:8px; border:1px dashed var(--border-color); display:none; font-size:0.85rem;"></div>
+                    </div>
+
+                    <!-- CCTV Tab -->
+                    <div id="tab-cctv" class="gui-tab" style="display:none;">
+                        <h3 style="margin-bottom:8px; color: var(--accent-color); font-size:1rem;">Cámaras CCTV y Vídeos</h3>
+                        <p style="margin-bottom:10px; font-size:0.8rem;">Resuelve los puzles ópticos para desbloquear el metraje de vídeo en directo.</p>
+                        <div id="cctv-grid-container" class="cctv-grid"></div>
+                    </div>
+
+                    <!-- Bomb Tab -->
+                    <div id="tab-bomb" class="gui-tab" style="display:none;">
+                        <h3 style="margin-bottom:8px; color: var(--alert-color); font-size:1rem;">⚠️ MÓDULO DE DESACTIVACIÓN DE BOMBA</h3>
+                        <p style="margin-bottom:8px; font-size:0.8rem;">Corta el cable correcto para neutralizar el artefacto. Los cables incorrectos detonan la bomba o restan 5 minutos.</p>
+                        <div id="bomb-status-msg" style="font-weight:bold; padding:6px; border:1px solid var(--border-color); margin-bottom:10px; text-align:center; font-size:0.85rem;">ESTADO: ARMADA Y ACTIVA</div>
+                        <div id="wire-list-ui" class="wire-container"></div>
+                    </div>
+
+                    <!-- QR Scanner Tab -->
+                    <div id="tab-qr" class="gui-tab" style="display:none; text-align:center;">
+                        <h3 style="margin-bottom:8px; color: var(--accent-color); font-size:1rem;">Escáner de Códigos QR</h3>
+                        <p style="font-size:0.8rem; margin-bottom:10px;">Enfoca un código QR físico de la habitación para desencriptar pistas automáticamente.</p>
+                        
+                        <div style="display:flex; justify-content:center; margin-bottom:10px;">
+                            <video id="qr-video" playsinline></video>
+                            <canvas id="qr-canvas" style="display:none;"></canvas>
+                        </div>
+                        
+                        <button onclick="startQrCamera()" style="margin-right:5px;">📷 Activar Cámara</button>
+                        <button onclick="stopQrCamera()">⏹️ Detener</button>
+                        
+                        <div class="form-group" style="margin-top:15px; text-align:left;">
+                            <label>O introduce el código QR manualmente:</label>
+                            <input type="text" id="manual-qr-input" placeholder="Ejemplo: 1924 o ARSENICO">
+                            <button onclick="processQrCode(document.getElementById('manual-qr-input').value)" style="width:100%; margin-top:6px;">PROCESAR CÓDIGO</button>
+                        </div>
+                    </div>
+
+                    <!-- Radio / Audio Frequencies Tab -->
+                    <div id="tab-radio" class="gui-tab" style="display:none;">
+                        <h3 style="margin-bottom:8px; color: var(--accent-color); font-size:1rem;">Intercepción de Frecuencia de Radio</h3>
+                        <p style="font-size:0.8rem; margin-bottom:10px;">Sintoniza el dial de frecuencia para interceptar transmisiones de voz o notas confidenciales.</p>
+                        
+                        <div class="form-group" style="margin:20px 0;">
+                            <label>Dial de Frecuencia: <span id="radio-freq-val" style="font-weight:bold; color:var(--accent-color);">92.4</span> MHz</label>
+                            <input type="range" id="radio-dial" min="88.0" max="108.0" step="0.1" value="92.4" oninput="tuneRadio(this.value)">
+                        </div>
+
+                        <button onclick="playRadioStatic()" style="width:100%; margin-bottom:15px;">📡 ESCUCHAR TRANSMISIÓN</button>
+                        <div id="radio-intercept-text" style="padding:10px; border:1px dashed var(--border-color); background:rgba(0,0,0,0.5); font-size:0.85rem; line-height:1.4;">
+                            [SINTONIZANDO SEÑAL] Ajusta la frecuencia exacta para escuchar la grabación capturada.
+                        </div>
+                    </div>
+
+                    <!-- Biometric Scanner Tab -->
+                    <div id="tab-bio" class="gui-tab" style="display:none;">
+                        <h3 style="margin-bottom:8px; color: var(--accent-color); font-size:1rem;">Escáner Biométrico dactilar</h3>
+                        <p style="font-size:0.8rem;">Mantén presionado el sensor con el pulgar durante 3 segundos para autenticar tu huella dactilar.</p>
+                        
+                        <div class="scanner-box">
+                            <div class="fingerprint-icon" id="fingerprint-btn" onmousedown="startBioScan()" onmouseup="cancelBioScan()" onmouseleave="cancelBioScan()" ontouchstart="startBioScan()" ontouchend="cancelBioScan()">👆</div>
+                            <div id="bio-status-text" style="font-weight:bold; font-size:0.9rem;">MANTÉN PULSADO PARA ESCANEAR</div>
+                            <div class="progress-bar-container">
+                                <div class="progress-bar-fill" id="bio-progress"></div>
+                            </div>
+                        </div>
+                        <div id="bio-result-msg" style="white-space:pre-wrap; padding:10px; border:1px solid var(--border-color); display:none; font-size:0.85rem;"></div>
+                    </div>
+
+                    <!-- Timer Tab -->
+                    <div id="tab-timer" class="gui-tab" style="display:none;">
+                        <h3 style="margin-bottom:8px; color: var(--accent-color); font-size:1rem;">Control de Cuenta Atrás</h3>
+                        <div style="font-size:2.5rem; text-align:center; margin:15px 0;" id="tab-timer-clock">30:00</div>
+                        <div style="display:flex; justify-content:center; gap:8px;">
+                            <button onclick="toggleTimer()">▶️ Iniciar / Pausar</button>
+                            <button onclick="resetTimer()">🔄 Reiniciar Tiempo</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bottom Navigation Bar for SmartPhones -->
+                <div class="bottom-nav">
+                    <button class="bottom-nav-btn btn-active" onclick="switchGuiTab('tab-files', this)">
+                        <span>📁</span>Archivos
+                    </button>
+                    <button class="bottom-nav-btn" onclick="switchGuiTab('tab-cctv', this)">
+                        <span>📹</span>CCTV
+                    </button>
+                    <button class="bottom-nav-btn" onclick="switchGuiTab('tab-bomb', this)" style="color:var(--alert-color);">
+                        <span>💣</span>Bomba
+                    </button>
+                    <button class="bottom-nav-btn" onclick="switchGuiTab('tab-dossiers', this)">
+                        <span>🕵️</span>Tablero
+                    </button>
+
+                    <button class="bottom-nav-btn" onclick="switchGuiTab('tab-qr', this)">
+                        <span>🔍</span>QR
+                    </button>
+                    <button class="bottom-nav-btn" onclick="switchGuiTab('tab-radio', this)">
+                        <span>📻</span>Radio
+                    </button>
+                    <button class="bottom-nav-btn" onclick="switchGuiTab('tab-bio', this)">
+                        <span>👆</span>Huella
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- GM AUTHENTICATION MODAL -->
+    <div id="modal-gm-auth" class="modal">
+        <div class="modal-content" style="max-width: 400px; text-align: center;">
+            <h2 style="color: var(--alert-color); margin-bottom: 8px; font-size:1.2rem;">🛡️ ACCESO RESTRINGIDO</h2>
+            <p style="color: var(--accent-color); font-weight: bold; margin-bottom: 12px; font-size:0.85rem;">
+                ⚠️ ATENCIÓN: Este menú es exclusivo para el creador del juego.
+            </p>
+            <div class="form-group">
+                <input type="password" id="gm-pass-input" placeholder="Contraseña de Game Master..." style="text-align:center; font-size:1rem;">
+            </div>
+            <div style="display:flex; gap:8px; justify-content:center; margin-top:12px;">
+                <button onclick="checkGmPassword()" style="border-color:var(--accent-color);">ACCEDER</button>
+                <button onclick="closeModal('modal-gm-auth')">CANCELAR</button>
+            </div>
+            <div id="gm-auth-error" style="color:var(--alert-color); margin-top:8px; display:none; font-weight:bold; font-size:0.85rem;">✖ CONTRASEÑA INCORRECTA</div>
+        </div>
+    </div>
+
+    <!-- GM PANEL MODAL -->
+    <div id="modal-gm" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 style="color: var(--alert-color);">🛡️ PANEL DE GAME MASTER (ORGANIZADOR)</h3>
+                <button onclick="closeModal('modal-gm')">✖</button>
+            </div>
+
+            <h4 style="margin-top:6px; color: var(--accent-color);">Clave de Activación Inicial</h4>
+            <div class="form-group">
+                <input type="text" id="gm-input-actcode" value="CLUEDO2026">
+            </div>
+
+            <h4 style="margin-top:10px; color: var(--accent-color);">Sistema & Temporizador</h4>
+            <div class="form-group">
+                <label>Título del Sistema:</label>
+                <input type="text" id="gm-input-title" value="BLACKWOOD_SEC_OS v3.4">
+            </div>
+            <div style="display:flex; gap:8px; align-items:center;" class="form-group">
+                <label>Minutos iniciales:</label>
+                <input type="number" id="gm-input-timer" value="30" style="width:70px;">
+                <button onclick="applyGmTimer()">Aplicar</button>
+            </div>
+
+            <h4 style="margin-top:10px; color: var(--accent-color);">Gestión de Archivos y Pistas</h4>
+            <div id="gm-files-list"></div>
+            <button onclick="addNewGmFile()" style="margin-top:6px;">➕ Añadir Nuevo Archivo</button>
+
+            <h4 style="margin-top:15px; color: var(--accent-color);">Cámaras CCTV (URLs YouTube)</h4>
+            <div id="gm-cctv-list"></div>
+
+            <h4 style="margin-top:15px; color: var(--alert-color);">Configuración de la Bomba</h4>
+            <div id="gm-bomb-wires"></div>
+
+            <h4 style="margin-top:15px; color: var(--accent-color);">Controles de Emergencia / Bypass</h4>
+            <div style="display:flex; gap:8px; margin-top:6px; flex-wrap:wrap;">
+                <button onclick="unlockAllFiles()" style="border-color:var(--accent-color);">🔓 Desbloquear Archivos</button>
+                <button onclick="unlockAllCameras()" style="border-color:var(--accent-color);">📹 Desbloquear Cámaras</button>
+                <button onclick="defuseBombGM()" style="border-color:var(--accent-color);">💣 Desactivar Bomba</button>
+                <button onclick="triggerIntrusionAlert()" style="border-color:var(--alert-color); color:var(--alert-color);">🚨 Lanzar Alerta Ciberataque</button>
+                <button onclick="resetSystemDefaults()" style="border-color:var(--alert-color); color:var(--alert-color);">⚠️ Reiniciar Caso</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CCTV PUZZLE MODALS -->
+    <div id="modal-cctv-p1" class="modal">
+        <div class="modal-content" style="max-width:380px; text-align:center;">
+            <div class="modal-header">
+                <h3>CAM-01: Secuencia de Memoria</h3>
+                <button onclick="closeModal('modal-cctv-p1')">✖</button>
+            </div>
+            <p style="font-size:0.8rem; margin-bottom:8px;">Repite la secuencia cromática de 4 tonos para calibrar el sensor óptico.</p>
+            <div id="simon-status" style="font-weight:bold; margin-bottom:8px; font-size:0.85rem;">Pulsa 'Iniciar' para ver la secuencia.</div>
+            <div class="simon-grid">
+                <div class="simon-btn" id="sbtn-0" style="background:#ff3333;" onclick="pressSimon(0)"></div>
+                <div class="simon-btn" id="sbtn-1" style="background:#3388ff;" onclick="pressSimon(1)"></div>
+                <div class="simon-btn" id="sbtn-2" style="background:#33ff33;" onclick="pressSimon(2)"></div>
+                <div class="simon-btn" id="sbtn-3" style="background:#ffff33;" onclick="pressSimon(3)"></div>
+            </div>
+            <button onclick="startSimonGame()">▶️ Iniciar Prueba</button>
+        </div>
+    </div>
+
+    <div id="modal-cctv-p2" class="modal">
+        <div class="modal-content" style="max-width:380px;">
+            <div class="modal-header">
+                <h3>CAM-02: Sintonizador de Frecuencia</h3>
+                <button onclick="closeModal('modal-cctv-p2')">✖</button>
+            </div>
+            <p style="font-size:0.8rem; margin-bottom:12px;">Ajusta la Frecuencia y la Amplitud (Objetivo: 88 Hz / 75%).</p>
+            <div class="form-group">
+                <label>Frecuencia: <span id="val-freq">50</span> Hz</label>
+                <input type="range" id="rng-freq" min="10" max="150" value="50" oninput="updateFreqTuner()">
+            </div>
+            <div class="form-group">
+                <label>Amplitud: <span id="val-amp">30</span>%</label>
+                <input type="range" id="rng-amp" min="0" max="100" value="30" oninput="updateFreqTuner()">
+            </div>
+            <div id="freq-status" style="text-align:center; font-weight:bold; margin-top:10px; padding:6px; border:1px dashed var(--border-color); font-size:0.85rem;">SEÑAL DESORDENADA</div>
+            <button onclick="checkFreqTuner()" style="width:100%; margin-top:10px;">VERIFICAR</button>
+        </div>
+    </div>
+
+    <div id="modal-cctv-p3" class="modal">
+        <div class="modal-content" style="max-width:380px; text-align:center;">
+            <div class="modal-header">
+                <h3>CAM-03: Matriz de Conmutadores</h3>
+                <button onclick="closeModal('modal-cctv-p3')">✖</button>
+            </div>
+            <p style="font-size:0.8rem; margin-bottom:12px;">Activa los interruptores de los nodos en la combinación correcta.</p>
+            <div style="display:flex; justify-content:center; gap:10px; margin:15px 0;">
+                <button id="node-btn-0" onclick="toggleNode(0)">NODE A: OFF</button>
+                <button id="node-btn-1" onclick="toggleNode(1)">NODE B: OFF</button>
+                <button id="node-btn-2" onclick="toggleNode(2)">NODE C: OFF</button>
+            </div>
+            <div id="node-status" style="font-weight:bold; margin-top:8px; font-size:0.85rem;">SISTEMA DESEQUILIBRADO</div>
+            <button onclick="checkNodes()" style="width:100%; margin-top:12px;">CONECTAR NODOS</button>
+        </div>
+    </div>
+
+    <!-- File View Modal (GUI) -->
+    <div id="modal-file-view" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="file-modal-title">Nombre del archivo</h3>
+                <button onclick="closeModal('modal-file-view')">✖</button>
+            </div>
+            <div id="file-modal-body" style="white-space:pre-wrap; line-height:1.4; font-size:0.9rem;"></div>
+        </div>
+    </div>
+
+    <script>
+        /* --- STATE MANAGEMENT --- */
+        let gameState = {
+            locked: true,
+            activationCode: "CLUEDO2026",
+            gmPassword: "190194",
+            title: "BLACKWOOD_SEC_OS v3.4",
+            soundEnabled: true,
+            timerSeconds: 1800,
+            timerInitialMinutes: 30,
+            timerRunning: false,
+            timerInterval: null,
+            mode: "gui",
+            files: [
+                {
+                    id: "bienvenida",
+                    name: "bienvenida.txt",
+                    encrypted: false,
+                    password: "",
+                    content: "=== SISTEMA DE SEGURIDAD MANSIÓN BLACKWOOD ===
+Conexión establecida con la terminal de la biblioteca.
+Recuerda: Los datos sensibles del caso están cifrados en formato .dat."
+                },
+                {
+                    id: "diario",
+                    name: "diario_camarero.dat",
+                    encrypted: true,
+                    password: "1924",
+                    content: "PISTA ENCONTRADA:
+El camarero afirma haber visto a la Sra. Rosa discutiendo acaloradamente con el Conde cerca de la biblioteca sobre las 22:00h. Dejó caer un objeto junto a la chimenea."
+                },
+                {
+                    id: "autopsia",
+                    name: "informe_autopsia.dat",
+                    encrypted: true,
+                    password: "ARSENICO",
+                    content: "INFORME MÉDICO FORENSE:
+Sustancia hallada en la copa de vino: Arsénico de alta pureza.
+El fallecimiento ocurrió entre las 22:15h y las 22:45h."
+                },
+                {
+                    id: "testamento",
+                    name: "testamento.dat",
+                    encrypted: true,
+                    password: "BLACKWOOD",
+                    content: "DOCUMENTO LEGAL:
+El Conde modificó su testamento la misma mañana del crimen, nombrando heredera universal a la Sra. Rosa y desheredando al Capitán Azul."
+                }
+            ],
+            suspects: [
+                { name: "Sra. Rosa", status: "Sospechosa", alibi: "Afirma haber estado leyendo en el salón principal.", note: "Mencionada en el diario del camarero." },
+                { name: "Capitán Azul", status: "Principal Sospechoso", alibi: "Dice que paseaba por los jardines en solitario.", note: "Tenía un fuerte motivo económico." },
+                { name: "Dr. Verde", status: "Exonerado", alibi: "Atendiendo una urgencia médica en el pueblo vecino.", note: "Verificado por llamadas de la centralita." }
+            ],
+            cctv: [
+                { id: "cam1", name: "CAM-01: Pasillo Principal", puzzle: "simon", solved: false, url: "https://www.youtube.com/embed/dQw4w9WgXcQ", note: "Sombra sospechosa vista a las 22:05h caminando hacia el despacho." },
+                { id: "cam2", name: "CAM-02: Despacho del Conde", puzzle: "freq", solved: false, url: "https://www.youtube.com/embed/dQw4w9WgXcQ", note: "El sujeto manipula el mueble bar a las 22:12h." },
+                { id: "cam3", name: "CAM-03: Biblioteca Secreta", puzzle: "nodes", solved: false, url: "https://www.youtube.com/embed/dQw4w9WgXcQ", note: "Documento retirado de la caja fuerte a las 22:20h." }
+            ],
+            bomb: {
+                defused: false,
+                exploded: false,
+                wires: [
+                    { id: 0, color: "#ff3333", label: "CABLE ROJO", action: "explode", cut: false },
+                    { id: 1, color: "#3388ff", label: "CABLE AZUL", action: "safe", cut: false },
+                    { id: 2, color: "#33ff33", label: "CABLE VERDE", action: "penalty", cut: false },
+                    { id: 3, color: "#ffff33", label: "CABLE AMARILLO", action: "penalty", cut: false },
+                    { id: 4, color: "#aaaaaa", label: "CABLE BLANCO", action: "penalty", cut: false }
+                ]
+            }
+        };
+
+        /* --- AUDIO SYNTHESIZER --- */
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        function playSound(type) {
+            if (!gameState.soundEnabled) return;
+            try {
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                const now = audioCtx.currentTime;
+
+                if (type === 'key') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(600 + Math.random() * 200, now);
+                    gain.gain.setValueAtTime(0.03, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+                    osc.start(now); osc.stop(now + 0.04);
+                    vibrate(15);
+                } else if (type === 'success') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(523.25, now);
+                    osc.frequency.setValueAtTime(659.25, now + 0.1);
+                    osc.frequency.setValueAtTime(783.99, now + 0.2);
+                    gain.gain.setValueAtTime(0.1, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+                    osc.start(now); osc.stop(now + 0.4);
+                    vibrate([50, 50, 100]);
+                } else if (type === 'error') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(150, now);
+                    gain.gain.setValueAtTime(0.1, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+                    osc.start(now); osc.stop(now + 0.25);
+                    vibrate([100, 50, 100]);
+                } else if (type === 'alarm') {
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(800, now);
+                    osc.frequency.linearRampToValueAtTime(400, now + 0.3);
+                    gain.gain.setValueAtTime(0.15, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+                    osc.start(now); osc.stop(now + 0.3);
+                    vibrate(200);
+                } else if (type === 'snip') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(1200, now);
+                    osc.frequency.exponentialRampToValueAtTime(200, now + 0.1);
+                    gain.gain.setValueAtTime(0.15, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+                    osc.start(now); osc.stop(now + 0.1);
+                    vibrate(40);
+                } else if (type === 'boom') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(100, now);
+                    osc.frequency.linearRampToValueAtTime(20, now + 0.8);
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+                    osc.start(now); osc.stop(now + 0.8);
+                    vibrate([300, 100, 300]);
+                } else if (type === 'static') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(Math.random() * 500 + 100, now);
+                    gain.gain.setValueAtTime(0.08, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+                    osc.start(now); osc.stop(now + 0.2);
+                } else if (type.startsWith('tone')) {
+                    const freqs = [300, 400, 500, 600];
+                    const idx = parseInt(type.replace('tone', '')) || 0;
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freqs[idx], now);
+                    gain.gain.setValueAtTime(0.15, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+                    osc.start(now); osc.stop(now + 0.3);
+                }
+            } catch(e){}
+        }
+
+        function vibrate(pattern) {
+            if ("vibrate" in navigator) {
+                try { navigator.vibrate(pattern); } catch(e){}
+            }
+        }
+
+        /* --- INITIAL LOCK SCREEN LOGIC --- */
+        function pressKeypad(val) {
+            playSound('key');
+            const input = document.getElementById('init-code-input');
+            input.value += val;
+        }
+
+        function clearKeypad() {
+            playSound('key');
+            const input = document.getElementById('init-code-input');
+            input.value = input.value.slice(0, -1);
+        }
+
+        function attemptSystemUnlock() {
+            const input = document.getElementById('init-code-input').value.trim();
+            if (input.toUpperCase() === gameState.activationCode.toUpperCase()) {
+                gameState.locked = false;
+                document.getElementById('lock-screen-overlay').style.display = 'none';
+                playSound('success');
+                toggleTimer();
+                printCli("[✔] SISTEMA DESBLOQUEADO CORRECTAMENTE.");
+                printCli("Iniciando temporizador de cuenta atrás...
+");
+            } else {
+                playSound('error');
+                const err = document.getElementById('init-lock-error');
+                err.style.display = 'block';
+                setTimeout(() => err.style.display = 'none', 2000);
+            }
+        }
+
+        document.getElementById('init-code-input').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') attemptSystemUnlock();
+        });
+
+        /* --- MATRIX CANVAS EFFECT --- */
+        const canvas = document.getElementById('matrix-canvas');
+        const ctx = canvas.getContext('2d');
+        function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789$#@%&*";
+        const fontSize = 14;
+        let columns = Math.floor(canvas.width / fontSize);
+        let drops = new Array(columns).fill(1);
+
+        function drawMatrix() {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            const style = getComputedStyle(document.body);
+            ctx.fillStyle = style.getPropertyValue('--main-color').trim() || '#00ff66';
+            ctx.font = fontSize + 'px monospace';
+
+            if (drops.length !== Math.floor(canvas.width / fontSize)) {
+                columns = Math.floor(canvas.width / fontSize);
+                drops = new Array(columns).fill(1);
+            }
+
+            for (let i = 0; i < drops.length; i++) {
+                const text = chars[Math.floor(Math.random() * chars.length)];
+                ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+                if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) drops[i] = 0;
+                drops[i]++;
+            }
+        }
+        setInterval(drawMatrix, 40);
+
+        /* --- TIMER SYSTEM --- */
+        function formatTime(seconds) {
+            const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+            const s = (seconds % 60).toString().padStart(2, '0');
+            return `${m}:${s}`;
+        }
+
+        function updateTimerDisplays() {
+            const formatted = formatTime(gameState.timerSeconds);
+            document.getElementById('timer-display').innerText = formatted;
+            document.getElementById('tab-timer-clock').innerText = formatted;
+
+            const timerBox = document.getElementById('timer-display');
+            if (gameState.timerSeconds <= 300 && gameState.timerSeconds > 0) {
+                timerBox.classList.add('alarm');
+            } else {
+                timerBox.classList.remove('alarm');
+            }
+        }
+
+        function toggleTimer() {
+            if (gameState.timerRunning) {
+                clearInterval(gameState.timerInterval);
+                gameState.timerRunning = false;
+            } else {
+                gameState.timerRunning = true;
+                gameState.timerInterval = setInterval(() => {
+                    if (gameState.timerSeconds > 0) {
+                        gameState.timerSeconds--;
+                        updateTimerDisplays();
+                        if (gameState.timerSeconds === 0) playSound('alarm');
+                    } else {
+                        clearInterval(gameState.timerInterval);
+                        gameState.timerRunning = false;
+                    }
+                }, 1000);
+            }
+        }
+
+        function resetTimer() {
+            if (gameState.timerRunning) {
+                clearInterval(gameState.timerInterval);
+                gameState.timerRunning = false;
+            }
+            gameState.timerSeconds = gameState.timerInitialMinutes * 60;
+            updateTimerDisplays();
+        }
+
+        /* --- CLI CONTROLLER --- */
+        const cliOutput = document.getElementById('cli-output');
+        const cliInput = document.getElementById('cli-input');
+
+        function printCli(text, styleClass = "") {
+            const div = document.createElement('div');
+            if (styleClass) div.className = styleClass;
+            div.innerText = text;
+            cliOutput.appendChild(div);
+            cliOutput.scrollTop = cliOutput.scrollHeight;
+        }
+
+        function printHeaderCli() {
+            printCli("==================================================");
+            printCli(`   SYSTEM: ${gameState.title}`);
+            printCli("   Escribe 'help' o 'ayuda' para ver los comandos.");
+            printCli("==================================================
+");
+        }
+
+        function handleCommand(cmdStr) {
+            const raw = cmdStr.trim();
+            if (!raw) return;
+
+            printCli(`GUEST@BLACKWOOD:~# ${raw}`, "cmd-echo");
+            playSound('key');
+
+            const parts = raw.split(" ").filter(p => p.length > 0);
+            const cmd = parts[0].toLowerCase();
+            const args = parts.slice(1);
+
+            switch (cmd) {
+                case "help":
+                case "ayuda":
+                    printCli("--- COMANDOS DISPONIBLES ---");
+                    printCli("  ls                         : Listar archivos en el sistema");
+                    printCli("  cat [archivo]              : Leer contenido de un archivo");
+                    printCli("  decrypt [archivo] [clave]  : Desencriptar archivo protegido");
+                    printCli("  cctv                       : Ver estado de cámaras de vigilancia");
+                    printCli("  bomba                      : Ver panel de desactivación de explosivo");
+                    printCli("  dossiers / suspects        : Ver expedientes de sospechosos");
+                    printCli("  timer                      : Consultar tiempo restante");
+                    printCli("  gui                        : Cambiar a modo interfaz gráfica");
+                    printCli("  gm / admin                 : Abrir Panel de Game Master");
+                    printCli("  clear                      : Limpiar la pantalla");
+                    break;
+
+                case "ls":
+                    printCli("DIRECTORIO DE ARCHIVOS:");
+                    gameState.files.forEach(f => {
+                        const status = f.encrypted ? "[🔒 ENCRIPTADO]" : "[🔓 ACCESIBLE]";
+                        printCli(` - ${f.name.padEnd(24)} ${status}`);
+                    });
+                    break;
+
+                case "cat":
+                    if (!args[0]) { printCli("Uso: cat [nombre_de_archivo]"); break; }
+                    const targetFile = gameState.files.find(f => f.name.toLowerCase() === args[0].toLowerCase());
+                    if (!targetFile) {
+                        printCli(`Error: El archivo '${args[0]}' no existe.`, "error");
+                        playSound('error');
+                    } else if (targetFile.encrypted) {
+                        printCli(`ACCESO DENEGADO: '${targetFile.name}' está encriptado. Usa 'decrypt ${targetFile.name} [clave]'`, "error");
+                        playSound('error');
+                    } else {
+                        printCli(`--- CONTENIDO DE ${targetFile.name} ---`);
+                        printCli(targetFile.content);
+                        playSound('success');
+                    }
+                    break;
+
+                case "decrypt":
+                    if (args.length < 2) { printCli("Uso: decrypt [nombre_de_archivo] [clave]"); break; }
+                    const fileToDecrypt = gameState.files.find(f => f.name.toLowerCase() === args[0].toLowerCase());
+                    const passInput = args.slice(1).join(" ");
+
+                    if (!fileToDecrypt) {
+                        printCli(`Error: Archivo '${args[0]}' no encontrado.`, "error");
+                        playSound('error');
+                    } else if (!fileToDecrypt.encrypted) {
+                        printCli(`El archivo '${fileToDecrypt.name}' ya está desencriptado.`);
+                    } else if (fileToDecrypt.password === passInput) {
+                        fileToDecrypt.encrypted = false;
+                        playSound('success');
+                        printCli(`[✔] CLAVE CORRECTA. Desencriptando ${fileToDecrypt.name}...`);
+                        scrambleTextAnimation(fileToDecrypt.content, (text) => {
+                            printCli(`--- CONTENIDO DESCIFRADO ---`);
+                            printCli(text);
+                            renderGuiFiles();
+                        });
+                    } else {
+                        printCli(`[✖] CLAVE INCORRECTA. Acceso denegado a '${fileToDecrypt.name}'.`, "error");
+                        playSound('error');
+                    }
+                    break;
+
+                case "gui": switchMode('gui'); break;
+                case "gm": case "admin": openGmAuthModal(); break;
+                case "clear": cliOutput.innerHTML = ""; printHeaderCli(); break;
+                default:
+                    printCli(`Comando no reconocido: '${cmd}'. Escribe 'help' para ayuda.`);
+                    playSound('error');
+                    break;
+            }
+        }
+
+        cliInput.addEventListener('keydown', (e) => {
+            playSound('key');
+            if (e.key === 'Enter') {
+                const val = cliInput.value;
+                cliInput.value = "";
+                handleCommand(val);
+            }
+        });
+
+        function scrambleTextAnimation(finalText, onComplete) {
+            let iteration = 0;
+            const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()";
+            const interval = setInterval(() => {
+                let scrambled = finalText.split("").map((letter, index) => {
+                    if (index < iteration || letter === " " || letter === "
+") return letter;
+                    return chars[Math.floor(Math.random() * chars.length)];
+                }).join("");
+
+                cliOutput.lastChild.innerText = scrambled;
+
+                if (iteration >= finalText.length) {
+                    clearInterval(interval);
+                    onComplete(finalText);
+                }
+                iteration += 3;
+            }, 30);
+            printCli("...");
+        }
+
+        /* --- GUI RENDERERS --- */
+        function renderGuiFiles() {
+            const list = document.getElementById('gui-file-list');
+            const select = document.getElementById('gui-decrypt-select');
+            list.innerHTML = "";
+            select.innerHTML = "";
+
+            gameState.files.forEach(f => {
+                const card = document.createElement('div');
+                card.className = "file-card";
+                card.onclick = () => openGuiFile(f);
+                card.innerHTML = `
+                    <div style="font-size:1.8rem; margin-bottom:4px;">${f.encrypted ? '🔒' : '📄'}</div>
+                    <div style="font-weight:bold; font-size:0.85rem;">${f.name}</div>
+                    <div style="font-size:0.7rem; opacity:0.8; margin-top:2px;">${f.encrypted ? 'Encriptado' : 'Desbloqueado'}</div>
+                `;
+                list.appendChild(card);
+
+                if (f.encrypted) {
+                    const opt = document.createElement('option');
+                    opt.value = f.name;
+                    opt.innerText = f.name;
+                    select.appendChild(opt);
+                }
+            });
+        }
+
+        function openGuiFile(f) {
+            playSound('key');
+            if (f.encrypted) {
+                switchGuiTab('tab-decrypt');
+                document.getElementById('gui-decrypt-select').value = f.name;
+            } else {
+                document.getElementById('file-modal-title').innerText = f.name;
+                document.getElementById('file-modal-body').innerText = f.content;
+                openModal('modal-file-view');
+            }
+        }
+
+        function renderGuiDossiers() {
+            const container = document.getElementById('gui-dossier-list');
+            container.innerHTML = "";
+            gameState.suspects.forEach(s => {
+                const card = document.createElement('div');
+                card.className = "suspect-card";
+                card.innerHTML = `
+                    <div class="suspect-header">
+                        <span>👤 ${s.name}</span>
+                        <span style="color:var(--accent-color);">${s.status}</span>
+                    </div>
+                    <div style="font-size:0.8rem;"><strong>Coartada:</strong> ${s.alibi}</div>
+                    <div style="margin-top:2px; font-size:0.8rem;"><strong>Notas:</strong> ${s.note}</div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function toggleMark(btn) {
+            playSound('key');
+            if (btn.innerText === '-') { btn.innerText = '✖'; btn.style.color = 'var(--alert-color)'; }
+            else if (btn.innerText === '✖') { btn.innerText = '✔'; btn.style.color = 'var(--main-color)'; }
+            else { btn.innerText = '-'; btn.style.color = 'var(--main-color)'; }
+        }
+
+        function requestHintPenalty() {
+            if (confirm("¿Deseas solicitar una pista al sistema a cambio de -3 minutos en el temporizador?")) {
+                gameState.timerSeconds = Math.max(0, gameState.timerSeconds - 180);
+                updateTimerDisplays();
+                playSound('alarm');
+                alert("💡 PISTA REVELADA: Revisa la fecha de publicación del diario o busca el símbolo del arsénico cerca de la biblioteca.");
+            }
+        }
+
+        function renderCctvGrid() {
+            const container = document.getElementById('cctv-grid-container');
+            container.innerHTML = "";
+            gameState.cctv.forEach((c, idx) => {
+                const card = document.createElement('div');
+                card.className = "cctv-card";
+
+                let contentHtml = "";
+                if (c.solved) {
+                    contentHtml = `<iframe src="${c.url}" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
+                } else {
+                    contentHtml = `
+                        <div style="text-align:center; padding:10px;">
+                            <div style="font-size:1.3rem; color:var(--alert-color);">🔒 SEÑAL PERDIDA</div>
+                            <div style="font-size:0.75rem; margin-top:4px;">PUZLE REQUERIDO</div>
+                            <button onclick="openCctvPuzzle(${idx})" style="margin-top:8px;">INICIAR PUZLE</button>
+                        </div>
+                    `;
+                }
+
+                card.innerHTML = `
+                    <div style="font-weight:bold; color:var(--accent-color); font-size:0.85rem;">${c.name}</div>
+                    <div class="cctv-screen">${contentHtml}</div>
+                    <div style="font-size:0.75rem;"><strong>Notas:</strong> ${c.solved ? c.note : 'Restablece la señal para ver notas.'}</div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function openCctvPuzzle(idx) {
+            playSound('key');
+            const c = gameState.cctv[idx];
+            if (c.puzzle === 'simon') openModal('modal-cctv-p1');
+            else if (c.puzzle === 'freq') openModal('modal-cctv-p2');
+            else if (c.puzzle === 'nodes') openModal('modal-cctv-p3');
+        }
+
+        /* --- CCTV PUZZLE LOGIC --- */
+        let simonSeq = [0, 2, 1, 3];
+        let simonUserSeq = [];
+
+        function startSimonGame() {
+            simonUserSeq = [];
+            document.getElementById('simon-status').innerText = "Memoriza el patrón...";
+            let i = 0;
+            const timer = setInterval(() => {
+                if (i < simonSeq.length) {
+                    flashSimonBtn(simonSeq[i]);
+                    i++;
+                } else {
+                    clearInterval(timer);
+                    document.getElementById('simon-status').innerText = "¡Tu turno!";
+                }
+            }, 600);
+        }
+
+        function flashSimonBtn(idx) {
+            playSound('tone' + idx);
+            const btn = document.getElementById('sbtn-' + idx);
+            btn.classList.add('active');
+            setTimeout(() => btn.classList.remove('active'), 300);
+        }
+
+        function pressSimon(idx) {
+            flashSimonBtn(idx);
+            simonUserSeq.push(idx);
+            const currentStep = simonUserSeq.length - 1;
+
+            if (simonUserSeq[currentStep] !== simonSeq[currentStep]) {
+                playSound('error');
+                document.getElementById('simon-status').innerText = "✖ Error. Reintentando...";
+                simonUserSeq = [];
+                return;
+            }
+
+            if (simonUserSeq.length === simonSeq.length) {
+                playSound('success');
+                gameState.cctv[0].solved = true;
+                renderCctvGrid();
+                closeModal('modal-cctv-p1');
+                alert("¡SEÑAL DE CAM-01 RESTABLECIDA!");
+            }
+        }
+
+        function updateFreqTuner() {
+            document.getElementById('val-freq').innerText = document.getElementById('rng-freq').value;
+            document.getElementById('val-amp').innerText = document.getElementById('rng-amp').value;
+        }
+
+        function checkFreqTuner() {
+            const f = parseInt(document.getElementById('rng-freq').value);
+            const a = parseInt(document.getElementById('rng-amp').value);
+
+            if (Math.abs(f - 88) <= 5 && Math.abs(a - 75) <= 5) {
+                playSound('success');
+                gameState.cctv[1].solved = true;
+                renderCctvGrid();
+                closeModal('modal-cctv-p2');
+                alert("¡SEÑAL DE CAM-02 RESTABLECIDA!");
+            } else {
+                playSound('error');
+                document.getElementById('freq-status').innerText = "✖ SEÑAL INESTABLE";
+            }
+        }
+
+        let nodesState = [false, false, false];
+        function toggleNode(idx) {
+            playSound('key');
+            nodesState[idx] = !nodesState[idx];
+            document.getElementById('node-btn-' + idx).innerText = `NODE ${String.fromCharCode(65+idx)}: ${nodesState[idx] ? 'ON' : 'OFF'}`;
+            document.getElementById('node-btn-' + idx).className = nodesState[idx] ? 'btn-active' : '';
+        }
+
+        function checkNodes() {
+            if (nodesState[0] === true && nodesState[1] === false && nodesState[2] === true) {
+                playSound('success');
+                gameState.cctv[2].solved = true;
+                renderCctvGrid();
+                closeModal('modal-cctv-p3');
+                alert("¡SEÑAL DE CAM-03 RESTABLECIDA!");
+            } else {
+                playSound('error');
+                document.getElementById('node-status').innerText = "✖ COMBINACIÓN INCORRECTA";
+            }
+        }
+
+        /* --- BOMB DEFUSAL --- */
+        function renderBombUI() {
+            const container = document.getElementById('wire-list-ui');
+            const statusMsg = document.getElementById('bomb-status-msg');
+            container.innerHTML = "";
+
+            if (gameState.bomb.defused) {
+                statusMsg.style.borderColor = "var(--main-color)";
+                statusMsg.style.color = "var(--main-color)";
+                statusMsg.innerText = "🟢 ESTADO: BOMBA DESACTIVADA CON ÉXITO";
+            } else if (gameState.bomb.exploded) {
+                statusMsg.style.borderColor = "var(--alert-color)";
+                statusMsg.style.color = "var(--alert-color)";
+                statusMsg.innerText = "💥 ESTADO: BOMBA DETONADA";
+            } else {
+                statusMsg.style.borderColor = "var(--alert-color)";
+                statusMsg.style.color = "var(--alert-color)";
+                statusMsg.innerText = "⚠️ ESTADO: BOMBA ARMADA Y ACTIVA";
+            }
+
+            gameState.bomb.wires.forEach((w, idx) => {
+                const row = document.createElement('div');
+                row.className = "wire-row";
+                row.innerHTML = `
+                    <div style="font-weight:bold; width:110px; color:${w.color}; font-size:0.8rem;">${w.label}</div>
+                    <div class="wire-line ${w.cut ? 'wire-cut' : ''}" style="background:${w.color}; color:${w.color};"></div>
+                    <button onclick="cutWire(${idx})" ${w.cut || gameState.bomb.defused || gameState.bomb.exploded ? 'disabled' : ''}>✂️</button>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        function cutWire(idx) {
+            const w = gameState.bomb.wires[idx];
+            if (w.cut || gameState.bomb.defused || gameState.bomb.exploded) return;
+
+            w.cut = true;
+            playSound('snip');
+
+            if (w.action === 'safe') {
+                gameState.bomb.defused = true;
+                clearInterval(gameState.timerInterval);
+                gameState.timerRunning = false;
+                playSound('success');
+                alert("🎉 ¡CABLE CORRECTO! Bomba desactivada.");
+            } else if (w.action === 'explode') {
+                gameState.bomb.exploded = true;
+                gameState.timerSeconds = 0;
+                updateTimerDisplays();
+                playSound('boom');
+                alert("💥 ¡BOOM! Has cortado el detonador.");
+            } else {
+                playSound('error');
+                gameState.timerSeconds = Math.max(0, gameState.timerSeconds - 300);
+                updateTimerDisplays();
+                alert("⚡ ¡CABLE ERRÓNEO! Penalización -5 minutos.");
+            }
+            renderBombUI();
+        }
+
+        /* --- QR CODE SCANNER LOGIC --- */
+        let qrVideoTrack = null;
+
+        function startQrCamera() {
+            playSound('key');
+            const video = document.getElementById('qr-video');
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }).then(stream => {
+                video.srcObject = stream;
+                qrVideoTrack = stream.getVideoTracks()[0];
+                video.setAttribute("playsinline", true);
+                video.play();
+                requestAnimationFrame(scanQrFrame);
+            }).catch(err => {
+                alert("No se pudo acceder a la cámara. Usa el código manual.");
+            });
+        }
+
+        function stopQrCamera() {
+            if (qrVideoTrack) qrVideoTrack.stop();
+        }
+
+        function scanQrFrame() {
+            const video = document.getElementById('qr-video');
+            const canvas = document.getElementById('qr-canvas');
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                canvas.height = video.videoHeight;
+                canvas.width = video.videoWidth;
+                const ctx = canvas.getContext("2d");
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                if (typeof jsQR !== "undefined") {
+                    const code = jsQR(imageData.data, imageData.width, imageData.height);
+                    if (code) {
+                        stopQrCamera();
+                        processQrCode(code.data);
+                        return;
+                    }
+                }
+            }
+            requestAnimationFrame(scanQrFrame);
+        }
+
+        function processQrCode(val) {
+            const codeStr = val.trim();
+            if (!codeStr) return;
+
+            // Check if matches file password or activation code
+            const matchedFile = gameState.files.find(f => f.password.toUpperCase() === codeStr.toUpperCase());
+            if (matchedFile) {
+                matchedFile.encrypted = false;
+                playSound('success');
+                alert(`✔ CÓDIGO QR RECONOCIDO: Archivo '${matchedFile.name}' desencriptado.`);
+                renderGuiFiles();
+            } else if (codeStr.toUpperCase() === gameState.activationCode.toUpperCase()) {
+                attemptSystemUnlock();
+            } else {
+                playSound('error');
+                alert(`✖ CÓDIGO QR NO RECONOCIDO: '${codeStr}'`);
+            }
+        }
+
+        /* --- RADIO / AUDIO TRANSMISSION LOGIC --- */
+        function tuneRadio(val) {
+            document.getElementById('radio-freq-val').innerText = val;
+            playSound('static');
+            const txt = document.getElementById('radio-intercept-text');
+            if (parseFloat(val) === 104.5) {
+                playSound('success');
+                txt.innerHTML = "<strong style='color:var(--accent-color);'>[TRANSMISIÓN CAPTADA - FRECUENCIA 104.5 MHz]</strong><br><br><i>'Atención agente: la botella de vino de la biblioteca contiene el segundo ingrediente. La combinación del armario es el año del diario.'</i>";
+            } else {
+                txt.innerText = "[ESTÁTICA DE RADIO] Sintoniza la frecuencia 104.5 MHz para interceptar el canal de audio.";
+            }
+        }
+
+        function playRadioStatic() {
+            playSound('static');
+        }
+
+        /* --- BIOMETRIC SCANNER LOGIC --- */
+        let bioTimer = null;
+        let bioProgress = 0;
+
+        function startBioScan() {
+            playSound('key');
+            bioProgress = 0;
+            document.getElementById('fingerprint-btn').classList.add('scanning');
+            document.getElementById('bio-status-text').innerText = "ESCANEARNDO HUELLA DACTILAR...";
+
+            bioTimer = setInterval(() => {
+                bioProgress += 10;
+                document.getElementById('bio-progress').style.width = bioProgress + "%";
+                if (bioProgress >= 100) {
+                    clearInterval(bioTimer);
+                    document.getElementById('fingerprint-btn').classList.remove('scanning');
+                    playSound('success');
+                    document.getElementById('bio-status-text').innerText = "🟢 ACCESO BIOMÉTRICO AUTORIZADO";
+                    const res = document.getElementById('bio-result-msg');
+                    res.style.display = "block";
+                    res.innerText = "CONFIRMACIÓN DE IDENTIDAD:
+Agente autorizado detectado. La Sra. Rosa no posee antecedentes criminales en la base de datos nacional.";
+                }
+            }, 200);
+        }
+
+        function cancelBioScan() {
+            if (bioTimer && bioProgress < 100) {
+                clearInterval(bioTimer);
+                bioProgress = 0;
+                document.getElementById('fingerprint-btn').classList.remove('scanning');
+                document.getElementById('bio-progress').style.width = "0%";
+                document.getElementById('bio-status-text').innerText = "✖ CANCELADO. REINTENTAR.";
+                playSound('error');
+            }
+        }
+
+        /* --- RANDOM INTRUSION ALERT --- */
+        let intrusionActive = false;
+        let intrusionTimeout = null;
+
+        function triggerIntrusionAlert() {
+            if (intrusionActive) return;
+            intrusionActive = true;
+            playSound('alarm');
+            document.getElementById('intrusion-banner').style.display = 'block';
+
+            intrusionTimeout = setTimeout(() => {
+                if (intrusionActive) {
+                    gameState.timerSeconds = Math.max(0, gameState.timerSeconds - 180);
+                    updateTimerDisplays();
+                    playSound('boom');
+                    alert("💥 CIBERATAQUE NO NEUTRALIZADO A TIEMPO: Penalización de -3 minutos.");
+                    document.getElementById('intrusion-banner').style.display = 'none';
+                    intrusionActive = false;
+                }
+            }, 15000);
+        }
+
+        function neutralizeIntrusion() {
+            if (!intrusionActive) return;
+            clearTimeout(intrusionTimeout);
+            intrusionActive = false;
+            document.getElementById('intrusion-banner').style.display = 'none';
+            playSound('success');
+            alert("🛡️ ¡INTRUSIÓN NEUTRALIZADA CON ÉXITO!");
+        }
+
+        function executeGuiDecrypt() {
+            const fileName = document.getElementById('gui-decrypt-select').value;
+            const pass = document.getElementById('gui-decrypt-pass').value;
+            const resDiv = document.getElementById('gui-decrypt-result');
+
+            if (!fileName) { alert("No hay archivos encriptados disponibles."); return; }
+
+            const target = gameState.files.find(f => f.name === fileName);
+            if (target && target.password === pass) {
+                target.encrypted = false;
+                playSound('success');
+                resDiv.style.display = "block";
+                resDiv.style.borderColor = "var(--main-color)";
+                resDiv.innerText = `[✔] DESENCRIPTADO CON ÉXITO:
+
+${target.content}`;
+                renderGuiFiles();
+                document.getElementById('gui-decrypt-pass').value = "";
+            } else {
+                playSound('error');
+                resDiv.style.display = "block";
+                resDiv.style.borderColor = "var(--alert-color)";
+                resDiv.innerText = "[✖] CONTRASEÑA INCORRECTA. ACCESO DENEGADO.";
+            }
+        }
+
+        function switchGuiTab(tabId, btn) {
+            playSound('key');
+            document.querySelectorAll('.gui-tab').forEach(t => t.style.display = 'none');
+            document.getElementById(tabId).style.display = 'block';
+
+            if (btn) {
+                document.querySelectorAll('.bottom-nav-btn').forEach(b => b.classList.remove('btn-active'));
+                btn.classList.add('btn-active');
+            }
+        }
+
+        /* --- GM PANEL & SECURITY AUTH --- */
+        function openGmAuthModal() {
+            playSound('key');
+            document.getElementById('gm-pass-input').value = "";
+            openModal('modal-gm-auth');
+        }
+
+        function checkGmPassword() {
+            const pass = document.getElementById('gm-pass-input').value;
+            if (pass === gameState.gmPassword) {
+                playSound('success');
+                closeModal('modal-gm-auth');
+                openModal('modal-gm');
+            } else {
+                playSound('error');
+                const err = document.getElementById('gm-auth-error');
+                err.style.display = 'block';
+                setTimeout(() => err.style.display = 'none', 2000);
+            }
+        }
+
+        function openModal(id) {
+            playSound('key');
+            document.getElementById(id).style.display = 'flex';
+            if (id === 'modal-gm') renderGmLists();
+        }
+
+        function closeModal(id) {
+            playSound('key');
+            document.getElementById(id).style.display = 'none';
+        }
+
+        function renderGmLists() {
+            const fContainer = document.getElementById('gm-files-list');
+            fContainer.innerHTML = "";
+            gameState.files.forEach((f, idx) => {
+                const box = document.createElement('div');
+                box.style.border = "1px solid var(--dim-color)";
+                box.style.padding = "6px";
+                box.style.marginBottom = "4px";
+                box.innerHTML = `
+                    <div style="display:flex; gap:6px; margin-bottom:4px;">
+                        <input type="text" value="${f.name}" onchange="updateGmFile(${idx}, 'name', this.value)">
+                        <input type="text" value="${f.password}" onchange="updateGmFile(${idx}, 'password', this.value)" placeholder="Clave">
+                        <button onclick="deleteGmFile(${idx})" style="color:var(--alert-color);">🗑️</button>
+                    </div>
+                    <textarea onchange="updateGmFile(${idx}, 'content', this.value)">${f.content}</textarea>
+                `;
+                fContainer.appendChild(box);
+            });
+
+            const cContainer = document.getElementById('gm-cctv-list');
+            cContainer.innerHTML = "";
+            gameState.cctv.forEach((c, idx) => {
+                const box = document.createElement('div');
+                box.style.border = "1px solid var(--dim-color)";
+                box.style.padding = "6px";
+                box.style.marginBottom = "4px";
+                box.innerHTML = `
+                    <div style="font-weight:bold; margin-bottom:2px; font-size:0.8rem;">${c.name}</div>
+                    <input type="text" value="${c.url}" onchange="gameState.cctv[${idx}].url = this.value; renderCctvGrid();" placeholder="URL YouTube embed">
+                `;
+                cContainer.appendChild(box);
+            });
+
+            const bContainer = document.getElementById('gm-bomb-wires');
+            bContainer.innerHTML = "";
+            gameState.bomb.wires.forEach((w, idx) => {
+                const box = document.createElement('div');
+                box.style.display = "flex";
+                box.style.gap = "8px";
+                box.style.alignItems = "center";
+                box.style.marginBottom = "4px";
+                box.innerHTML = `
+                    <span style="color:${w.color}; font-weight:bold; width:100px; font-size:0.8rem;">${w.label}</span>
+                    <select onchange="gameState.bomb.wires[${idx}].action = this.value; renderBombUI();">
+                        <option value="safe" ${w.action==='safe'?'selected':''}>Seguro (Desactiva)</option>
+                        <option value="explode" ${w.action==='explode'?'selected':''}>Detonador (Explota)</option>
+                        <option value="penalty" ${w.action==='penalty'?'selected':''}>Penalización (-5m)</option>
+                    </select>
+                `;
+                bContainer.appendChild(box);
+            });
+        }
+
+        function updateGmFile(idx, key, val) {
+            gameState.files[idx][key] = val;
+            if (key === 'password' && val.trim() !== '') gameState.files[idx].encrypted = true;
+            renderGuiFiles();
+        }
+
+        function addNewGmFile() {
+            gameState.files.push({ id: "file_" + Date.now(), name: "pista_nueva.dat", encrypted: true, password: "CLAVE", content: "Nueva pista..." });
+            renderGmLists(); renderGuiFiles();
+        }
+
+        function deleteGmFile(idx) {
+            gameState.files.splice(idx, 1);
+            renderGmLists(); renderGuiFiles();
+        }
+
+        function applyGmTimer() {
+            const min = parseInt(document.getElementById('gm-input-timer').value) || 30;
+            gameState.timerInitialMinutes = min;
+            gameState.timerSeconds = min * 60;
+            updateTimerDisplays();
+            alert("Tiempo actualizado.");
+        }
+
+        document.getElementById('gm-input-actcode').addEventListener('change', (e) => {
+            gameState.activationCode = e.target.value.trim();
+        });
+
+        function unlockAllFiles() {
+            gameState.files.forEach(f => f.encrypted = false);
+            renderGuiFiles(); renderGmLists();
+            alert("Todos los archivos desbloqueados.");
+        }
+
+        function unlockAllCameras() {
+            gameState.cctv.forEach(c => c.solved = true);
+            renderCctvGrid();
+            alert("Todas las cámaras desbloqueadas.");
+        }
+
+        function defuseBombGM() {
+            gameState.bomb.defused = true;
+            clearInterval(gameState.timerInterval);
+            gameState.timerRunning = false;
+            renderBombUI();
+            alert("Bomba desactivada.");
+        }
+
+        function resetSystemDefaults() {
+            if (confirm("¿Seguro que deseas reiniciar todo el caso por defecto?")) location.reload();
+        }
+
+        document.getElementById('gm-input-title').addEventListener('input', (e) => {
+            gameState.title = e.target.value;
+            document.getElementById('sys-title-text').innerText = "⚡ " + gameState.title;
+        });
+
+        /* --- MODE & THEME SWITCHING --- */
+        function switchMode(mode) {
+            playSound('key');
+            gameState.mode = mode;
+            if (mode === 'cli') {
+                document.getElementById('cli-view').style.display = 'flex';
+                document.getElementById('gui-view').style.display = 'none';
+                document.getElementById('btn-mode-cli').classList.add('btn-active');
+                document.getElementById('btn-mode-gui').classList.remove('btn-active');
+                cliInput.focus();
+            } else {
+                document.getElementById('cli-view').style.display = 'none';
+                document.getElementById('gui-view').style.display = 'flex';
+                document.getElementById('btn-mode-gui').classList.add('btn-active');
+                document.getElementById('btn-mode-cli').classList.remove('btn-active');
+                renderGuiFiles();
+                renderGuiDossiers();
+                renderCctvGrid();
+                renderBombUI();
+            }
+        }
+
+        document.getElementById('btn-mode-cli').onclick = () => switchMode('cli');
+        document.getElementById('btn-mode-gui').onclick = () => switchMode('gui');
+        document.getElementById('btn-gm-panel').onclick = () => openGmAuthModal();
+
+        document.getElementById('theme-select').addEventListener('change', (e) => {
+            document.body.className = e.target.value;
+            playSound('key');
+        });
+
+        document.getElementById('btn-sound-toggle').addEventListener('click', () => {
+            gameState.soundEnabled = !gameState.soundEnabled;
+            document.getElementById('btn-sound-toggle').innerText = gameState.soundEnabled ? "🔊" : "🔇";
+        });
+
+        /* --- INIT --- */
+        printHeaderCli();
+        renderGuiFiles();
+        renderGuiDossiers();
+        renderCctvGrid();
+        renderBombUI();
+        updateTimerDisplays();
+    </script>
+</body>
+</html>
